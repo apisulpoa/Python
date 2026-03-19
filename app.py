@@ -12,7 +12,7 @@ st.title("Geocodificação 🌍 Reversa")
 st.write("Célula Técnica - Grupo Apisul")
 
 # 1. Upload do Arquivo
-arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx", type=['xlsx'])
+arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx que possui Latitude e Longitude.", type=['xlsx'])
 
 if arquivo_upload is not None:
     df = pd.read_excel(arquivo_upload)
@@ -105,9 +105,9 @@ if arquivo_upload is not None:
                 df.to_excel(writer, index=False, sheet_name='Geocodificado')
             
             st.download_button(
-                label="📥 Baixar Planilha Pronta (.xlsx)",
+                label="📥 Baixar planilha pronta (.xlsx)",
                 data=output.getvalue(),
-                file_name="planilha_com_localizacao_detalhada.xlsx",
+                file_name="PlanilhaLocalizacao.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 

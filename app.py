@@ -24,7 +24,7 @@ if arquivo_upload is not None:
         st.write("📊 **Pré-visualização dos Dados Originais:**")
         st.dataframe(df.head())
         
-        if st.button("Iniciar Geocodificação Turbo 🚀"):
+        if st.button("Iniciar Geocodificação 🚀"):
             
             # Tratamento de Segurança: Remove espaços, aceita ponto ou vírgula e força a ser número
             lat_limpa = df['Latitude'].astype(str).str.strip().str.replace(',', '.')

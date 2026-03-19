@@ -2,4 +2,4 @@ pandas
 geopy
 openpyxl
 xlsxwriter
-customtkinter
+customtkinter as ctk

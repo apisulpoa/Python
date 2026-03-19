@@ -25,19 +25,20 @@ if arquivo_upload is not None:
         
         if st.button("Iniciar Geocodificação Turbo 🚀"):
             
-            # Tratamento dos dados (Garante que a vírgula vira ponto e vira número)
             df['Lat_Tratada'] = df['Latitude'].astype(str).str.replace(',', '.').astype(float)
             df['Lon_Tratada'] = df['Longitude'].astype(str).str.replace(',', '.').astype(float)
 
-            # Usando o ArcGIS que é muito mais rápido e preciso para estradas/Brasil
             geolocator = ArcGIS(user_agent="meu_app_roteirizacao")
 
             barra_progresso = st.progress(0)
             status_texto = st.empty()
             
+            # Novas listas para guardar as informações separadas
+            cidades = []
+            estados = []
             localizacoes = []
-            total_linhas = len(df)
             
+            total_linhas = len(df)
             status_texto.text("Processando em alta velocidade...")
             
             for indice, linha in df.iterrows():
@@ -45,31 +46,46 @@ if arquivo_upload is not None:
                 lon = linha['Lon_Tratada']
                 
                 try:
-                    # Busca a localização no ArcGIS
                     local = geolocator.reverse((lat, lon))
                     if local:
+                        # Guarda o endereço completo
                         localizacoes.append(local.address)
+                        
+                        # Acessa os dados "crus" (raw) que o ArcGIS devolve em formato de dicionário
+                        dados_brutos = local.raw.get('address', {})
+                        
+                        # Pega a Cidade. Se for área rural e 'City' estiver vazio, tenta pegar 'Subregion' (Município)
+                        cidade = dados_brutos.get('City') or dados_brutos.get('Subregion') or "Não identificada"
+                        # Pega o Estado ('Region' no padrão ArcGIS)
+                        estado = dados_brutos.get('Region') or "Não identificado"
+                        
+                        cidades.append(cidade)
+                        estados.append(estado)
                     else:
                         localizacoes.append("Local não mapeado")
+                        cidades.append("N/A")
+                        estados.append("N/A")
+                        
                 except Exception as e:
                     localizacoes.append("Erro na busca")
+                    cidades.append("Erro")
+                    estados.append("Erro")
                 
-                # Uma pausa minúscula de 0.1s só para não sobrecarregar
                 time.sleep(0.1)
-                
-                # Atualiza a barra de progresso
                 barra_progresso.progress((indice + 1) / total_linhas)
 
-            # Limpando as colunas extras e adicionando o resultado
             df = df.drop(columns=['Lat_Tratada', 'Lon_Tratada'])
-            df['Localização'] = localizacoes
+            
+            # Adicionando as três novas colunas ao DataFrame final
+            df['Cidade'] = cidades
+            df['Estado'] = estados
+            df['Localização Completa'] = localizacoes
             
             status_texto.text("✅ Processamento concluído com sucesso!")
             
             st.write("📍 **Resultado:**")
             st.dataframe(df)
 
-            # Preparar o arquivo para Download
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name='Geocodificado')
@@ -77,6 +93,5 @@ if arquivo_upload is not None:
             st.download_button(
                 label="📥 Baixar Planilha Pronta (.xlsx)",
                 data=output.getvalue(),
-                file_name="planilha_com_localizacao_arcgis.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+                file_name="planilha_com_localizacao_detalhada.xlsx",
+                mime="application

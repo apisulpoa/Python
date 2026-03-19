@@ -3,12 +3,13 @@ import pandas as pd
 from geopy.geocoders import ArcGIS
 import time
 import io
+import re
 
 # Configuração da página
 st.set_page_config(page_title="Geocodificador Reverso", page_icon="🌍")
 
 st.title("🌍 Automação de Geocodificação Reversa")
-st.write("Envie sua planilha com as colunas **SMP, Latitude, Longitude e Projeto** e descubra o endereço de cada ponto.")
+st.write("Envie qualquer planilha contendo as colunas **Latitude** e **Longitude**. O aplicativo manterá todas as suas outras colunas intactas e adicionará os dados de localização no final.")
 
 # 1. Upload do Arquivo
 arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx", type=['xlsx'])
@@ -16,9 +17,9 @@ arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx", type
 if arquivo_upload is not None:
     df = pd.read_excel(arquivo_upload)
     
-    colunas_esperadas = ['SMP', 'Latitude', 'Longitude', 'Projeto']
-    if not all(coluna in df.columns for coluna in colunas_esperadas):
-        st.error(f"O arquivo deve conter exatamente as colunas: {', '.join(colunas_esperadas)}")
+    # Validação dinâmica: verifica apenas se Lat e Lon existem na planilha
+    if 'Latitude' not in df.columns or 'Longitude' not in df.columns:
+        st.error("O arquivo deve conter as colunas 'Latitude' e 'Longitude' (exatamente com esses nomes, com a primeira letra maiúscula).")
     else:
         st.write("📊 **Pré-visualização dos Dados Originais:**")
         st.dataframe(df.head())
@@ -33,7 +34,6 @@ if arquivo_upload is not None:
             barra_progresso = st.progress(0)
             status_texto = st.empty()
             
-            # Novas listas para guardar as informações separadas
             cidades = []
             estados = []
             localizacoes = []
@@ -48,19 +48,29 @@ if arquivo_upload is not None:
                 try:
                     local = geolocator.reverse((lat, lon))
                     if local:
-                        # Guarda o endereço completo
-                        localizacoes.append(local.address)
+                        endereco_completo = local.address
+                        localizacoes.append(endereco_completo)
                         
-                        # Acessa os dados "crus" (raw)
-                        dados_brutos = local.raw.get('address', {})
+                        # Lógica para fatiar o texto separando por vírgula
+                        partes = endereco_completo.split(',')
+                        partes = [p.strip() for p in partes] # Limpa espaços em branco
                         
-                        # Pega a Cidade ou Sub-região
-                        cidade = dados_brutos.get('City') or dados_brutos.get('Subregion') or "Não identificada"
-                        # Pega o Estado
-                        estado = dados_brutos.get('Region') or "Não identificado"
-                        
-                        cidades.append(cidade)
-                        estados.append(estado)
+                        if len(partes) >= 3:
+                            # O Estado + CEP costuma ser o penúltimo item
+                            estado_com_cep = partes[-2]
+                            # Remove todos os números (0-9) e traços (-) para deixar só o nome do Estado
+                            estado_limpo = re.sub(r'[0-9-]', '', estado_com_cep).strip()
+                            
+                            # A Cidade costuma ser o antepenúltimo item
+                            cidade = partes[-3]
+                            
+                            cidades.append(cidade)
+                            estados.append(estado_limpo)
+                        else:
+                            # Caso o endereço venha muito curto e fora do padrão
+                            cidades.append("Não identificada")
+                            estados.append("Não identificado")
+                            
                     else:
                         localizacoes.append("Local não mapeado")
                         cidades.append("N/A")
@@ -76,7 +86,7 @@ if arquivo_upload is not None:
 
             df = df.drop(columns=['Lat_Tratada', 'Lon_Tratada'])
             
-            # Adicionando as três novas colunas ao DataFrame final
+            # Adiciona as colunas novas no final da planilha original
             df['Cidade'] = cidades
             df['Estado'] = estados
             df['Localização Completa'] = localizacoes
@@ -90,6 +100,7 @@ if arquivo_upload is not None:
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name='Geocodificado')
             
+            # Cuidado ao copiar esta parte para não quebrar a linha do mime= novamente!
             st.download_button(
                 label="📥 Baixar Planilha Pronta (.xlsx)",
                 data=output.getvalue(),

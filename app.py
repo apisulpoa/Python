@@ -8,8 +8,8 @@ import re
 # Configuração da página
 st.set_page_config(page_title="Geocodificador Reverso", page_icon="🌍")
 
-st.title("🌍 Automação de Geocodificação Reversa")
-st.write("Envie qualquer planilha contendo as colunas **Latitude** e **Longitude**. O aplicativo manterá todas as suas outras colunas intactas e adicionará os dados de localização no final.")
+st.title("Geocodificação 🌍 Reversa")
+st.write("Célula Técnica - Grupo Apisul")
 
 # 1. Upload do Arquivo
 arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx", type=['xlsx'])
@@ -110,3 +110,15 @@ if arquivo_upload is not None:
                 file_name="planilha_com_localizacao_detalhada.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+# --- RODAPÉ PROFISSIONAL ---
+st.markdown("---") # Cria uma linha divisória bem sutil
+st.markdown(
+    """
+    <div style="text-align: center; color: #888888; padding-top: 10px;">
+        <p style="margin-bottom: 2px;">Desenvolvido por <b>Luciano Henriques</b> | Analista de Dados</p>
+        <p style="font-size: 12px; margin-top: 0px;">Célula Técnica - Grupo Apisul</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)

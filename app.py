@@ -1,23 +1,21 @@
 import streamlit as st
 import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
+from geopy.geocoders import ArcGIS
+import time
 import io
 
 # Configuração da página
 st.set_page_config(page_title="Geocodificador Reverso", page_icon="🌍")
 
-st.title("Geocodificação 🌍 Reversa")
-st.write("Célula Técnica - Grupo Apisul")
+st.title("🌍 Automação de Geocodificação Reversa")
+st.write("Envie sua planilha com as colunas **SMP, Latitude, Longitude e Projeto** e descubra o endereço de cada ponto.")
 
 # 1. Upload do Arquivo
 arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx", type=['xlsx'])
 
 if arquivo_upload is not None:
-    # Ler a planilha
     df = pd.read_excel(arquivo_upload)
     
-    # Validar se as colunas existem
     colunas_esperadas = ['SMP', 'Latitude', 'Longitude', 'Projeto']
     if not all(coluna in df.columns for coluna in colunas_esperadas):
         st.error(f"O arquivo deve conter exatamente as colunas: {', '.join(colunas_esperadas)}")
@@ -25,47 +23,44 @@ if arquivo_upload is not None:
         st.write("📊 **Pré-visualização dos Dados Originais:**")
         st.dataframe(df.head())
         
-        # Botão para iniciar o processamento
-        if st.button("Iniciar Geocodificação 🚀"):
+        if st.button("Iniciar Geocodificação Turbo 🚀"):
             
-            # Tratamento dos dados: Converter vírgula para ponto e depois para float numérico
+            # Tratamento dos dados (Garante que a vírgula vira ponto e vira número)
             df['Lat_Tratada'] = df['Latitude'].astype(str).str.replace(',', '.').astype(float)
             df['Lon_Tratada'] = df['Longitude'].astype(str).str.replace(',', '.').astype(float)
 
-            # Configurar o Geocodificador (OpenStreetMap)
-            geolocator = Nominatim(user_agent="meu_aplicativo_geocodificador")
-            
-            # RateLimiter é crucial para não ser bloqueado pelo OpenStreetMap por excesso de requisições rápidas
-            reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1.2)
+            # Usando o ArcGIS que é muito mais rápido e preciso para estradas/Brasil
+            geolocator = ArcGIS(user_agent="meu_app_roteirizacao")
 
-            # Criar barra de progresso no Streamlit
             barra_progresso = st.progress(0)
             status_texto = st.empty()
             
             localizacoes = []
             total_linhas = len(df)
             
-            status_texto.text("Processando... Isso pode levar alguns segundos por linha.")
+            status_texto.text("Processando em alta velocidade...")
             
-            # Loop por cada linha do dataframe
             for indice, linha in df.iterrows():
                 lat = linha['Lat_Tratada']
                 lon = linha['Lon_Tratada']
                 
                 try:
-                    # Busca a localização e força o retorno em português
-                    local = reverse((lat, lon), language='pt')
+                    # Busca a localização no ArcGIS
+                    local = geolocator.reverse((lat, lon))
                     if local:
                         localizacoes.append(local.address)
                     else:
-                        localizacoes.append("Local não encontrado")
+                        localizacoes.append("Local não mapeado")
                 except Exception as e:
                     localizacoes.append("Erro na busca")
+                
+                # Uma pausa minúscula de 0.1s só para não sobrecarregar
+                time.sleep(0.1)
                 
                 # Atualiza a barra de progresso
                 barra_progresso.progress((indice + 1) / total_linhas)
 
-            # Remover as colunas de tratamento e adicionar a coluna final
+            # Limpando as colunas extras e adicionando o resultado
             df = df.drop(columns=['Lat_Tratada', 'Lon_Tratada'])
             df['Localização'] = localizacoes
             
@@ -82,6 +77,6 @@ if arquivo_upload is not None:
             st.download_button(
                 label="📥 Baixar Planilha Pronta (.xlsx)",
                 data=output.getvalue(),
-                file_name="planilha_com_localizacao.xlsx",
+                file_name="planilha_com_localizacao_arcgis.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )

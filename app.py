@@ -51,12 +51,12 @@ if arquivo_upload is not None:
                         # Guarda o endereço completo
                         localizacoes.append(local.address)
                         
-                        # Acessa os dados "crus" (raw) que o ArcGIS devolve em formato de dicionário
+                        # Acessa os dados "crus" (raw)
                         dados_brutos = local.raw.get('address', {})
                         
-                        # Pega a Cidade. Se for área rural e 'City' estiver vazio, tenta pegar 'Subregion' (Município)
+                        # Pega a Cidade ou Sub-região
                         cidade = dados_brutos.get('City') or dados_brutos.get('Subregion') or "Não identificada"
-                        # Pega o Estado ('Region' no padrão ArcGIS)
+                        # Pega o Estado
                         estado = dados_brutos.get('Region') or "Não identificado"
                         
                         cidades.append(cidade)
@@ -94,4 +94,5 @@ if arquivo_upload is not None:
                 label="📥 Baixar Planilha Pronta (.xlsx)",
                 data=output.getvalue(),
                 file_name="planilha_com_localizacao_detalhada.xlsx",
-                mime="application
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )

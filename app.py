@@ -1,124 +1,55 @@
-import streamlit as st
+import customtkinter as ctk
+import tkinter.filedialog as filedialog
+import threading
 import pandas as pd
-from geopy.geocoders import ArcGIS
-import time
-import io
 import re
+import os
 
-# Configuração da página
-st.set_page_config(page_title="Geocodificador Reverso", page_icon="🌍")
+# --- CORES DA IDENTIDADE VISUAL ---
+COR_FUNDO_CABECALHO = "#002b5e" 
+COR_BOTAO_PRIMARIO = "#006db6"  
+COR_BOTAO_HOVER = "#004a7c"     
+COR_FUNDO_TELA = "#f4f5f7"      
+COR_TEXTO_ESCURO = "#333333"
 
-st.title("Geocodificação 🌍 Reversa")
-st.write("Célula Técnica - Grupo Apisul")
+ctk.set_appearance_mode("Light")  
 
-# 1. Upload do Arquivo
-arquivo_upload = st.file_uploader("Arraste ou selecione seu arquivo .xlsx que possui Latitude e Longitude.", type=['xlsx'])
+class ConversorApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-if arquivo_upload is not None:
-    df = pd.read_excel(arquivo_upload)
-    
-    # Validação dinâmica
-    if 'Latitude' not in df.columns or 'Longitude' not in df.columns:
-        st.error("O arquivo deve conter as colunas 'Latitude' e 'Longitude' (exatamente com esses nomes, com a primeira letra maiúscula).")
-    else:
-        st.write("📊 **Pré-visualização dos Dados Originais:**")
-        st.dataframe(df.head())
+        # Configurações da Janela Principal
+        self.title("ApisulLog - Otimização e Conversão de Dados")
+        self.geometry("650x450")
+        self.configure(fg_color=COR_FUNDO_TELA)
+        self.resizable(False, False)
+
+        # --- CABEÇALHO ---
+        self.header_frame = ctk.CTkFrame(self, fg_color=COR_FUNDO_CABECALHO, corner_radius=0, height=90)
+        self.header_frame.pack(fill="x", side="top")
         
-        if st.button("Iniciar Geocodificação 🚀"):
-            
-            # Tratamento de Segurança: Remove espaços, aceita ponto ou vírgula e força a ser número
-            lat_limpa = df['Latitude'].astype(str).str.strip().str.replace(',', '.')
-            lon_limpa = df['Longitude'].astype(str).str.strip().str.replace(',', '.')
-            
-            # Se houver texto/letras no lugar de números, converte para vazio (NaN) em vez de quebrar o app
-            df['Lat_Tratada'] = pd.to_numeric(lat_limpa, errors='coerce')
-            df['Lon_Tratada'] = pd.to_numeric(lon_limpa, errors='coerce')
+        self.title_label = ctk.CTkLabel(self.header_frame, text="SISTEMA DE CONVERSÃO DE DADOS", 
+                                        text_color="white", font=("Segoe UI", 22, "bold"))
+        self.title_label.pack(pady=30)
 
-            geolocator = ArcGIS(user_agent="meu_app_roteirizacao")
+        # --- ÁREA CENTRAL (CONTEÚDO) ---
+        self.main_frame = ctk.CTkFrame(self, fg_color="white", corner_radius=15)
+        self.main_frame.pack(fill="both", expand=True, padx=40, pady=30)
 
-            barra_progresso = st.progress(0)
-            status_texto = st.empty()
-            
-            cidades = []
-            estados = []
-            localizacoes = []
-            
-            total_linhas = len(df)
-            status_texto.text("Processando em alta velocidade...")
-            
-            for indice, linha in df.iterrows():
-                lat = linha['Lat_Tratada']
-                lon = linha['Lon_Tratada']
-                
-                # Regra de segurança: Se a coordenada for inválida ou texto, ele pula a busca
-                if pd.isna(lat) or pd.isna(lon):
-                    localizacoes.append("Coordenada inválida na planilha")
-                    cidades.append("N/A")
-                    estados.append("N/A")
-                else:
-                    try:
-                        local = geolocator.reverse((lat, lon))
-                        if local:
-                            endereco_completo = local.address
-                            localizacoes.append(endereco_completo)
-                            
-                            partes = endereco_completo.split(',')
-                            partes = [p.strip() for p in partes]
-                            
-                            if len(partes) >= 3:
-                                estado_com_cep = partes[-2]
-                                estado_limpo = re.sub(r'[0-9-]', '', estado_com_cep).strip()
-                                cidade = partes[-3]
-                                
-                                cidades.append(cidade)
-                                estados.append(estado_limpo)
-                            else:
-                                cidades.append("Não identificada")
-                                estados.append("Não identificado")
-                                
-                        else:
-                            localizacoes.append("Local não mapeado")
-                            cidades.append("N/A")
-                            estados.append("N/A")
-                            
-                    except Exception as e:
-                        localizacoes.append("Erro na busca")
-                        cidades.append("Erro")
-                        estados.append("Erro")
-                
-                time.sleep(0.1)
-                barra_progresso.progress((indice + 1) / total_linhas)
+        self.instruction_label = ctk.CTkLabel(self.main_frame, text="Selecione a planilha (.xlsx) para iniciar a conversão:", 
+                                              text_color=COR_TEXTO_ESCURO, font=("Segoe UI", 14))
+        self.instruction_label.pack(pady=(30, 10), anchor="w", padx=30)
 
-            df = df.drop(columns=['Lat_Tratada', 'Lon_Tratada'])
-            
-            df['Cidade'] = cidades
-            df['Estado'] = estados
-            df['Localização Completa'] = localizacoes
-            
-            status_texto.text("✅ Processamento concluído com sucesso!")
-            
-            st.write("📍 **Resultado:**")
-            st.dataframe(df)
+        self.file_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.file_frame.pack(fill="x", padx=30, pady=5)
 
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Geocodificado')
-            
-            st.download_button(
-                label="📥 Baixar planilha pronta (.xlsx)",
-                data=output.getvalue(),
-                file_name="PlanilhaLocalizacao.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        self.file_path_var = ctk.StringVar()
+        self.file_entry = ctk.CTkEntry(self.file_frame, textvariable=self.file_path_var, width=350, 
+                                       fg_color=COR_FUNDO_TELA, border_color="#cccccc", text_color=COR_TEXTO_ESCURO)
+        self.file_entry.pack(side="left", padx=(0, 10))
 
-# --- RODAPÉ PROFISSIONAL ---
-st.markdown("---") # Cria uma linha divisória bem sutil
-st.markdown(
-    """
-    <div style="text-align: center; color: #888888; padding-top: 10px;">
-        <p style="margin-bottom: 2px;">Desenvolvido por <b>Luciano Henriques</b> | Analista de Dados</p>
-        <p style="font-size: 12px; margin-top: 0px;">Célula Técnica - Grupo Apisul</p>
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
+        self.btn_select = ctk.CTkButton(self.file_frame, text="Procurar", command=self.selecionar_arquivo,
+                                        fg_color=COR_FUNDO_CABECALHO, hover_color="#001833", width=100, font=("Segoe UI", 12, "bold"))
+        self.btn_select.pack(side="left")
+
+        self.btn_run = ctk
